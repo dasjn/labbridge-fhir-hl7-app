@@ -216,16 +216,21 @@ OBX|2|NM|6690-2^WBC^LN||7500|cells/uL|4500-11000|N|||F|||20251016120000
 
 ---
 
-## 🎯 Project Scope
+## 🎯 Project Status
 
-### Phase 1: Core HL7v2 → FHIR (Week 1-2)
-- [x] MLLP TCP listener (async server)
-- [x] HL7v2 parser (NHapi integration)
-- [x] ORU^R01 message type support
-- [x] HL7v2 → FHIR transformation logic
-- [x] FHIR API client (Refit + Polly retry)
-- [x] ACK generation and response
-- [x] Basic logging (Serilog)
+### ✅ Phase 1A: Core Parsing & Transformation (Completed)
+- [x] **HL7v2 Parser** (`NHapiParser.cs`) - Parse ORU^R01 messages with NHapi
+- [x] **FHIR Transformer** (`FhirTransformer.cs`) - Convert HL7 → FHIR (Patient, Observation, DiagnosticReport)
+- [x] **ACK Generator** (`AckGenerator.cs`) - Generate AA/AE/AR acknowledgements
+- [x] **48 Unit Tests** - All passing (15 parsing + 24 transformation + 8 ACK + 1 baseline)
+- [x] **Test Coverage** - Parser validation, FHIR mapping, error handling, edge cases
+
+### 🚧 Phase 1B: MLLP & Integration (In Progress)
+- [ ] MLLP TCP listener (async server on port 2575)
+- [ ] RabbitMQ message queue integration
+- [ ] End-to-end integration test
+- [ ] FHIR API client (Refit + Polly retry)
+- [ ] Basic logging (Serilog)
 
 ### Phase 2: Reliability & Audit (Week 3)
 - [ ] RabbitMQ message queue integration
@@ -336,11 +341,28 @@ LabBridge is designed to work seamlessly with **LabFlow FHIR API** (the portfoli
 
 ## 🧪 Testing Strategy
 
-### Unit Tests
-- HL7v2 parsing (NHapi message types)
-- Transformation logic (HL7 → FHIR)
-- ACK generation
-- Patient identifier matching
+### Unit Tests (48 tests - All passing ✅)
+
+**HL7 Parsing (15 tests)**
+- Parse valid ORU^R01 messages
+- Extract PID, OBX, OBR segments
+- Handle special characters (ñ, á, é)
+- Validate message structure
+- Extract message type and control ID
+
+**FHIR Transformation (24 tests)**
+- Transform PID → Patient (identifiers, names, gender, birthDate)
+- Transform OBX → Observation (valueQuantity, codes, interpretation)
+- Transform OBR → DiagnosticReport (identifiers, panel codes)
+- Handle numeric (NM) and coded (CE) value types
+- Map HL7 status codes to FHIR (F→final, P→preliminary)
+
+**ACK Generation (8 tests)**
+- Generate AA (Application Accept) acknowledgements
+- Generate AE (Application Error) with error messages
+- Generate AR (Application Reject) with rejection reasons
+- Preserve Message Control ID (MSH-10)
+- Fallback ACK for malformed messages
 
 ### Integration Tests
 - End-to-end: HL7v2 message → MLLP → Transform → FHIR API → Database
