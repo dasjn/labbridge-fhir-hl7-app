@@ -20,15 +20,12 @@ jobs:
 
     - name: Restore dependencies
       run: dotnet restore
-      working-directory: ./LabBridge
 
     - name: Build
       run: dotnet build --no-restore --configuration Release
-      working-directory: ./LabBridge
 
     - name: Run all tests
       run: dotnet test --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed"
-      working-directory: ./LabBridge
 
     - name: Test Summary
       if: always()
