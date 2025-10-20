@@ -85,6 +85,10 @@ public class MllpServer : IMllpServer
             using (client)
             using (var stream = client.GetStream())
             {
+                // Set timeouts to prevent hanging connections
+                stream.ReadTimeout = 30000;  // 30 seconds
+                stream.WriteTimeout = 10000; // 10 seconds
+
                 var buffer = new byte[8192];
                 var messageBuffer = new List<byte>();
                 var bytesRead = 0;
@@ -107,10 +111,20 @@ public class MllpServer : IMllpServer
 
                         // Send ACK response with MLLP framing
                         var ackBytes = WrapWithMllpFraming(ackMessage);
-                        await stream.WriteAsync(ackBytes, 0, ackBytes.Length, cancellationToken);
-                        await stream.FlushAsync(cancellationToken);
 
-                        _logger.LogInformation("Sent ACK to {ClientEndpoint}", clientEndpoint);
+                        try
+                        {
+                            await stream.WriteAsync(ackBytes, 0, ackBytes.Length, cancellationToken);
+                            await stream.FlushAsync(cancellationToken);
+
+                            _logger.LogInformation("Sent ACK to {ClientEndpoint}", clientEndpoint);
+                        }
+                        catch (IOException ioEx) when (ioEx.InnerException is SocketException)
+                        {
+                            // Client closed connection before ACK could be sent - this is expected under high load
+                            _logger.LogWarning("Client {ClientEndpoint} closed connection before ACK could be sent", clientEndpoint);
+                            break;
+                        }
 
                         // Clear buffer for next message (if any)
                         messageBuffer.Clear();
@@ -118,9 +132,21 @@ public class MllpServer : IMllpServer
                 }
             }
         }
+        catch (IOException ioEx) when (ioEx.InnerException is SocketException socketEx)
+        {
+            // Network errors (connection reset, forcibly closed, etc.) are expected under high load
+            _logger.LogWarning("Network error with client {ClientEndpoint}: {ErrorCode}",
+                clientEndpoint, socketEx.ErrorCode);
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancellation is expected during shutdown
+            _logger.LogDebug("Client handler cancelled for {ClientEndpoint}", clientEndpoint);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling client {ClientEndpoint}", clientEndpoint);
+            // Unexpected errors should still be logged as errors
+            _logger.LogError(ex, "Unexpected error handling client {ClientEndpoint}", clientEndpoint);
         }
         finally
         {
