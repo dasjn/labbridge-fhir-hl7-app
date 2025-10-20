@@ -163,22 +163,22 @@ public class MllpServerTests : IAsyncLifetime
             // Wait a bit
             await Task.Delay(1000);
 
-            // Try to read response (should timeout or get nothing)
+            // Try to read response (should timeout because server won't respond to incomplete message)
             var buffer = new byte[1024];
-            stream.ReadTimeout = 2000;
-
-            // Assert - Should not crash, but won't respond (no complete message detected)
             var bytesRead = 0;
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(2000));
             try
             {
-                bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
             }
-            catch (IOException)
+            catch (OperationCanceledException)
             {
-                // Timeout is expected
+                // Timeout is expected - server correctly ignores malformed message
+                bytesRead = 0;
             }
 
-            // Server should still be running (not crashed)
+            // Assert - Server should not respond (and not crash)
             bytesRead.Should().Be(0);
         }
         finally
@@ -213,18 +213,19 @@ public class MllpServerTests : IAsyncLifetime
             // Wait a bit
             await Task.Delay(1000);
 
-            // Try to read response
+            // Try to read response (should timeout because server won't respond to incomplete message)
             var buffer = new byte[1024];
-            stream.ReadTimeout = 2000;
-
             var bytesRead = 0;
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(2000));
             try
             {
-                bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
             }
-            catch (IOException)
+            catch (OperationCanceledException)
             {
-                // Timeout is expected
+                // Timeout is expected - server correctly waits for complete MLLP frame
+                bytesRead = 0;
             }
 
             // Assert - No response because message is incomplete
