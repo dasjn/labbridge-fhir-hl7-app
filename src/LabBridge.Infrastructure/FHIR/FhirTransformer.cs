@@ -34,7 +34,7 @@ public class FhirTransformer : IHL7ToFhirTransformer
             // Extract patient from PID segment
             var patientResult = oruMessage.GetPATIENT_RESULT(0);
             var pid = patientResult.PATIENT.PID;
-            var patient = TransformPatient(pid);
+            var patient = (Patient)TransformPatient(pid);
             result.Patient = patient;
 
             var patientId = pid.GetPatientIdentifierList(0).IDNumber.Value;
@@ -53,11 +53,11 @@ public class FhirTransformer : IHL7ToFhirTransformer
                 observationIds.Add($"Observation/{i + 1}");
             }
 
-            result.Observations = observations.Cast<object>().ToList();
+            result.Observations = observations;
 
             // Extract diagnostic report from OBR segment
             var obr = orderObservation.OBR;
-            var diagnosticReport = TransformDiagnosticReport(obr, patientId, observationIds);
+            var diagnosticReport = (DiagnosticReport)TransformDiagnosticReport(obr, patientId, observationIds);
             result.DiagnosticReport = diagnosticReport;
 
             result.Success = true;

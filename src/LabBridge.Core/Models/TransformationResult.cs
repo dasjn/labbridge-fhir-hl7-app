@@ -1,3 +1,5 @@
+using Hl7.Fhir.Model;
+
 namespace LabBridge.Core.Models;
 
 /// <summary>
@@ -8,17 +10,17 @@ public class TransformationResult
     /// <summary>
     /// Patient resource extracted from PID segment
     /// </summary>
-    public object? Patient { get; set; }
+    public Patient? Patient { get; set; }
 
     /// <summary>
     /// Observation resources extracted from OBX segments
     /// </summary>
-    public List<object> Observations { get; set; } = new();
+    public List<Observation> Observations { get; set; } = new();
 
     /// <summary>
     /// DiagnosticReport resource extracted from OBR segment
     /// </summary>
-    public object? DiagnosticReport { get; set; }
+    public DiagnosticReport? DiagnosticReport { get; set; }
 
     /// <summary>
     /// Original HL7v2 Message Control ID (MSH-10) for correlation
