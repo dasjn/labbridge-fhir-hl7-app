@@ -13,6 +13,7 @@ public class MllpServerTests : IAsyncLifetime
 {
     private readonly Mock<IHL7Parser> _mockParser;
     private readonly Mock<IAckGenerator> _mockAckGenerator;
+    private readonly Mock<IMessageQueue> _mockMessageQueue;
     private readonly Mock<ILogger<MllpServer>> _mockLogger;
     private MllpServer _mllpServer;
     private CancellationTokenSource _cancellationTokenSource;
@@ -27,9 +28,10 @@ public class MllpServerTests : IAsyncLifetime
     {
         _mockParser = new Mock<IHL7Parser>();
         _mockAckGenerator = new Mock<IAckGenerator>();
+        _mockMessageQueue = new Mock<IMessageQueue>();
         _mockLogger = new Mock<ILogger<MllpServer>>();
 
-        _mllpServer = new MllpServer(_mockParser.Object, _mockAckGenerator.Object, _mockLogger.Object);
+        _mllpServer = new MllpServer(_mockParser.Object, _mockAckGenerator.Object, _mockMessageQueue.Object, _mockLogger.Object);
         _cancellationTokenSource = new CancellationTokenSource();
     }
 

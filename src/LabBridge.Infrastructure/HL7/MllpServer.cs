@@ -10,6 +10,7 @@ public class MllpServer : IMllpServer
 {
     private readonly IHL7Parser _parser;
     private readonly IAckGenerator _ackGenerator;
+    private readonly IMessageQueue _messageQueue;
     private readonly ILogger<MllpServer> _logger;
     private TcpListener? _listener;
     private readonly List<Task> _clientTasks = new();
@@ -22,10 +23,12 @@ public class MllpServer : IMllpServer
     public MllpServer(
         IHL7Parser parser,
         IAckGenerator ackGenerator,
+        IMessageQueue messageQueue,
         ILogger<MllpServer> logger)
     {
         _parser = parser;
         _ackGenerator = ackGenerator;
+        _messageQueue = messageQueue;
         _logger = logger;
     }
 
@@ -100,7 +103,7 @@ public class MllpServer : IMllpServer
                             clientEndpoint, hl7Message.Length);
 
                         // Process message and generate ACK
-                        var ackMessage = ProcessMessage(hl7Message);
+                        var ackMessage = await ProcessMessageAsync(hl7Message);
 
                         // Send ACK response with MLLP framing
                         var ackBytes = WrapWithMllpFraming(ackMessage);
@@ -151,7 +154,7 @@ public class MllpServer : IMllpServer
         return Encoding.UTF8.GetString(messageBytes.ToArray());
     }
 
-    private string ProcessMessage(string hl7Message)
+    private async Task<string> ProcessMessageAsync(string hl7Message)
     {
         try
         {
@@ -170,10 +173,10 @@ public class MllpServer : IMllpServer
             _logger.LogInformation("Parsed HL7 message: Type={MessageType}, ControlId={ControlId}",
                 messageType, messageControlId);
 
-            // TODO: Here we will publish to RabbitMQ in Phase 1B.2
-            // For now, just log and acknowledge
+            // Publish to RabbitMQ for async processing
+            await _messageQueue.PublishAsync(hl7Message, messageControlId);
 
-            // Generate ACK (success)
+            // Generate ACK (success) - send immediately to analyzer
             var ackMessage = _ackGenerator.GenerateAcceptAck(hl7Message);
 
             return ackMessage;
