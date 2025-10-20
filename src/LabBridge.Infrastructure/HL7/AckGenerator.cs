@@ -71,7 +71,7 @@ public class AckGenerator : IAckGenerator
             // Convert ACK to string
             return _parser.Encode(ack);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Fallback: Generate minimal ACK manually if parsing fails
             var messageControlId = ExtractMessageControlId(originalMessage);

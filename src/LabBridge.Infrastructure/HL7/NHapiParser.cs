@@ -93,7 +93,7 @@ public class NHapiParser : IHL7Parser
             var mshProperty = message.GetType().GetProperty("MSH");
             if (mshProperty != null)
             {
-                dynamic msh = mshProperty.GetValue(message);
+                dynamic? msh = mshProperty.GetValue(message);
                 return msh?.MessageControlID?.Value ?? string.Empty;
             }
 
