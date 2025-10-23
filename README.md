@@ -560,6 +560,67 @@ cat test_oru_r01.hl7 | nc localhost 2575
 
 ---
 
+## 🧪 Testing
+
+### Unit Tests (64 tests)
+
+Run all unit tests:
+
+```bash
+dotnet test tests/LabBridge.UnitTests
+```
+
+**Coverage**:
+- HL7 Parsing (15 tests) - NHapi message parsing
+- FHIR Transformation (24 tests) - HL7v2 → FHIR conversion
+- ACK Generation (8 tests) - HL7v2 acknowledgements
+- MLLP Server (6 tests) - TCP listener functionality
+- FHIR Client (10 tests) - Refit API client
+- Baseline (1 test) - Project structure validation
+
+**CI/CD**: Unit tests run automatically on every push via GitHub Actions.
+
+---
+
+### E2E Integration Tests (1 test)
+
+**Prerequisites**:
+- Docker Desktop running
+- LabFlow API image built (`labflow-api:latest`)
+
+**Run E2E test**:
+
+```bash
+# 1. Navigate to integration tests directory
+cd tests/LabBridge.IntegrationTests
+
+# 2. Start Docker services (RabbitMQ + LabFlow API)
+docker-compose -f docker-compose.test.yml up -d
+
+# 3. Wait for services to be ready (~15 seconds)
+
+# 4. Run E2E test
+cd ../..
+dotnet test tests/LabBridge.IntegrationTests
+
+# 5. Cleanup
+cd tests/LabBridge.IntegrationTests
+docker-compose -f docker-compose.test.yml down -v
+```
+
+**What the E2E test validates**:
+1. ✅ Send HL7v2 ORU^R01 message via MLLP (CBC panel with 3 observations)
+2. ✅ Receive ACK response < 1 second
+3. ✅ Message queued to RabbitMQ
+4. ✅ Message processed and transformed to FHIR
+5. ✅ Patient created in LabFlow API
+6. ✅ 3 Observations created (Hemoglobin, WBC, Platelets)
+7. ✅ DiagnosticReport created with references to observations
+
+**Note**: E2E tests are **NOT** run in CI/CD due to Docker infrastructure requirements. Run manually before releases or when testing integration changes.
+
+---
+
 ## 📖 Resources
 
 ### HL7v2 Specification

@@ -24,12 +24,15 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release
 
-    - name: Run all tests
-      run: dotnet test --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed"
+    - name: Run unit tests
+      run: dotnet test --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed" --filter "FullyQualifiedName!~IntegrationTests"
 
     - name: Test Summary
       if: always()
       run: |
         echo "### Test Results :test_tube:" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "All tests completed. Check logs above for details." >> $GITHUB_STEP_SUMMARY
+        echo "Unit tests completed (64 tests). E2E integration tests run manually before releases." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**E2E Tests**: Available in \`tests/LabBridge.IntegrationTests\`" >> $GITHUB_STEP_SUMMARY
+        echo "Run with: \`docker-compose -f tests/LabBridge.IntegrationTests/docker-compose.test.yml up -d && dotnet test\`" >> $GITHUB_STEP_SUMMARY
