@@ -34,5 +34,5 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "Unit tests completed (64 tests). E2E integration tests run manually before releases." >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**E2E Tests**: Available in \`tests/LabBridge.IntegrationTests\`" >> $GITHUB_STEP_SUMMARY
-        echo "Run with: \`docker-compose -f tests/LabBridge.IntegrationTests/docker-compose.test.yml up -d && dotnet test\`" >> $GITHUB_STEP_SUMMARY
+        echo "**E2E Tests**: Available in tests/LabBridge.IntegrationTests" >> $GITHUB_STEP_SUMMARY
+        echo "Run with: docker-compose -f tests/LabBridge.IntegrationTests/docker-compose.test.yml up -d && dotnet test" >> $GITHUB_STEP_SUMMARY
