@@ -23,8 +23,14 @@ builder.Services.AddSingleton<IMessageQueue, RabbitMqQueue>();
 // Register FHIR API client with Refit + Polly retry policies
 var fhirApiBaseUrl = builder.Configuration.GetValue<string>("FhirApi:BaseUrl") ?? "http://localhost:5000";
 
+// Configure Refit with custom FhirHttpContentSerializer for proper FHIR R4 serialization
+var refitSettings = new RefitSettings
+{
+    ContentSerializer = new FhirHttpContentSerializer()
+};
+
 builder.Services
-    .AddRefitClient<ILabFlowApi>()
+    .AddRefitClient<ILabFlowApi>(refitSettings)
     .ConfigureHttpClient(c => c.BaseAddress = new Uri(fhirApiBaseUrl))
     .AddPolicyHandler(GetRetryPolicy())
     .AddPolicyHandler(GetCircuitBreakerPolicy());

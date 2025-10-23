@@ -7,17 +7,20 @@ namespace LabBridge.Service;
 public class MessageProcessorWorker : BackgroundService
 {
     private readonly IMessageQueue _messageQueue;
+    private readonly IHL7Parser _parser;
     private readonly IHL7ToFhirTransformer _transformer;
     private readonly IFhirClient _fhirClient;
     private readonly ILogger<MessageProcessorWorker> _logger;
 
     public MessageProcessorWorker(
         IMessageQueue messageQueue,
+        IHL7Parser parser,
         IHL7ToFhirTransformer transformer,
         IFhirClient fhirClient,
         ILogger<MessageProcessorWorker> logger)
     {
         _messageQueue = messageQueue;
+        _parser = parser;
         _transformer = transformer;
         _fhirClient = fhirClient;
         _logger = logger;
@@ -51,8 +54,13 @@ public class MessageProcessorWorker : BackgroundService
 
         try
         {
+            // Parse HL7 message first
+            var parsedMessage = _parser.Parse(hl7Message);
+            _logger.LogInformation("HL7 message parsed successfully: Type={MessageType}",
+                _parser.GetMessageType(hl7Message));
+
             // Transform HL7 to FHIR
-            var result = _transformer.Transform(hl7Message);
+            var result = _transformer.Transform(parsedMessage);
 
             _logger.LogInformation("Transformed HL7 to FHIR: Patient exists={HasPatient}, Observations={ObsCount}, Report exists={HasReport}",
                 result.Patient != null,
@@ -65,7 +73,8 @@ public class MessageProcessorWorker : BackgroundService
                 var patient = await _fhirClient.CreateOrUpdatePatientAsync(result.Patient);
                 _logger.LogInformation("Patient created/updated in FHIR API: FhirId={FhirId}", patient.Id);
 
-                // Create observations
+                // Create observations and track their FHIR IDs
+                var createdObservationIds = new List<string>();
                 if (result.Observations != null && result.Observations.Count > 0)
                 {
                     foreach (var observation in result.Observations)
@@ -74,18 +83,28 @@ public class MessageProcessorWorker : BackgroundService
                         observation.Subject = new Hl7.Fhir.Model.ResourceReference($"Patient/{patient.Id}");
 
                         var createdObs = await _fhirClient.CreateObservationAsync(observation);
+                        createdObservationIds.Add(createdObs.Id);
                         _logger.LogInformation("Observation created in FHIR API: FhirId={FhirId}", createdObs.Id);
                     }
                 }
 
-                // Create diagnostic report
+                // Create diagnostic report with updated observation references
                 if (result.DiagnosticReport != null)
                 {
                     // Update subject reference to use FHIR patient ID
                     result.DiagnosticReport.Subject = new Hl7.Fhir.Model.ResourceReference($"Patient/{patient.Id}");
 
+                    // CRITICAL: Update Result references to use actual FHIR observation IDs
+                    if (createdObservationIds.Count > 0)
+                    {
+                        result.DiagnosticReport.Result = createdObservationIds
+                            .Select(id => new Hl7.Fhir.Model.ResourceReference($"Observation/{id}"))
+                            .ToList();
+                    }
+
                     var report = await _fhirClient.CreateDiagnosticReportAsync(result.DiagnosticReport);
-                    _logger.LogInformation("DiagnosticReport created in FHIR API: FhirId={FhirId}", report.Id);
+                    _logger.LogInformation("DiagnosticReport created in FHIR API: FhirId={FhirId}, Results={ResultCount}",
+                        report.Id, report.Result?.Count ?? 0);
                 }
 
                 _logger.LogInformation("Successfully processed and sent HL7 message to FHIR API");

@@ -6,6 +6,7 @@ namespace LabBridge.Infrastructure.FHIR;
 /// <summary>
 /// Refit interface for LabFlow FHIR API
 /// Defines HTTP endpoints for FHIR resource operations
+/// Uses FhirHttpContentSerializer for proper FHIR serialization/deserialization
 /// </summary>
 public interface ILabFlowApi
 {

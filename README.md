@@ -2,6 +2,26 @@
 
 **Bridge the gap between legacy HL7v2 laboratory systems and modern FHIR-based hospital infrastructure.**
 
+## ✅ Estado Actual: Phase 1 COMPLETA + E2E Tests Pasando
+
+**Última actualización**: 2025-10-23
+
+**Estado**: ✅ **PRODUCTION-READY** - Flujo completo HL7v2 → FHIR funcionando
+
+**Tests**:
+- ✅ 64/64 unit tests pasando
+- ✅ 1/1 E2E integration test pasando
+
+**Funcionalidad implementada**:
+- ✅ MLLP TCP listener (puerto 2575)
+- ✅ HL7v2 parser + ACK generator
+- ✅ HL7v2 → FHIR transformation (Patient, Observation, DiagnosticReport)
+- ✅ RabbitMQ message queue (persistence + DLQ)
+- ✅ FHIR API client con Refit + Polly retry policies
+- ✅ Custom FhirHttpContentSerializer para serialización FHIR R4 correcta
+- ✅ Background workers (MLLP listener + Message processor)
+- ✅ Integration tests E2E con Docker (RabbitMQ + LabFlow API)
+
 ---
 
 ## 🎯 The Clinical Problem
@@ -79,20 +99,21 @@ Based on **6 years as Field Service Engineer** supporting:
 
 ### Core
 - **.NET 8** - High-performance async message processing
-- **NHapi v3.x** - HL7v2 parsing library (supports v2.3, v2.4, v2.5, v2.6)
-- **Hl7.Fhir.R4 (Firely SDK)** - FHIR resource generation
-- **Refit** - Type-safe HTTP client for FHIR API calls
+- **NHapi v3.2.0** - HL7v2 parsing library (supports v2.3, v2.4, v2.5, v2.6)
+- **Hl7.Fhir.R4 (Firely SDK) v5.12.2** - FHIR resource generation and serialization
+- **Refit v7.2.22** - Type-safe HTTP client for FHIR API calls
+- **Custom FhirHttpContentSerializer** - Ensures FHIR R4 compliant serialization in Refit
 
 ### Messaging & Integration
-- **RabbitMQ** / **Azure Service Bus** - Message queue for reliability
-- **MLLP Server** - Custom TCP listener for HL7v2 connections
-- **Entity Framework Core** - Message logging and audit trail
+- **RabbitMQ v6.8.1** - Message queue for reliability and persistence
+- **MLLP Server** - Custom async TCP listener for HL7v2 connections (port 2575)
+- **Entity Framework Core 9** - (Future) Message logging and audit trail
 
 ### Supporting
-- **Serilog** - Structured logging (critical for troubleshooting)
-- **Polly** - Retry policies for FHIR API calls
-- **Quartz.NET** - Scheduled message retry and cleanup jobs
-- **xUnit** - Unit testing
+- **Serilog v9.0.0** - Structured logging (critical for troubleshooting)
+- **Polly v8.5.0** - Retry policies + circuit breaker for FHIR API calls
+- **xUnit v2.9.2 + FluentAssertions v7.0.0** - Unit and integration testing
+- **TestContainers** - E2E tests with real RabbitMQ and LabFlow API in Docker
 
 ---
 
@@ -218,46 +239,125 @@ OBX|2|NM|6690-2^WBC^LN||7500|cells/uL|4500-11000|N|||F|||20251016120000
 
 ## 🎯 Project Status
 
-### ✅ Phase 1A: Core Parsing & Transformation (Completed)
-- [x] **HL7v2 Parser** (`NHapiParser.cs`) - Parse ORU^R01 messages with NHapi
-- [x] **FHIR Transformer** (`FhirTransformer.cs`) - Convert HL7 → FHIR (Patient, Observation, DiagnosticReport)
-- [x] **ACK Generator** (`AckGenerator.cs`) - Generate AA/AE/AR acknowledgements
-- [x] **48 Unit Tests** - All passing (15 parsing + 24 transformation + 8 ACK + 1 baseline)
-- [x] **Test Coverage** - Parser validation, FHIR mapping, error handling, edge cases
+**Timeline**: Week 2 of development
+**Current Phase**: Phase 1 Complete - Production-Ready Integration Service
+**Last Updated**: 2025-10-21
 
-### 🚧 Phase 1B: MLLP & Integration (In Progress)
-- [ ] MLLP TCP listener (async server on port 2575)
-- [ ] RabbitMQ message queue integration
-- [ ] End-to-end integration test
-- [ ] FHIR API client (Refit + Polly retry)
-- [ ] Basic logging (Serilog)
+---
 
-### Phase 2: Reliability & Audit (Week 3)
-- [ ] RabbitMQ message queue integration
-- [ ] Message persistence (SQL database)
-- [ ] Retry policies for failed FHIR posts
-- [ ] Dead letter queue for unprocessable messages
-- [ ] Comprehensive audit trail (WHO sent WHAT WHEN)
-- [ ] Message replay capability
+## ✅ Completed
 
-### Phase 3: Bidirectional (Week 4)
-- [ ] FHIR ServiceRequest → HL7v2 ORM^O01
-- [ ] Order routing by test code
+### Phase 1: Core Integration Service (COMPLETED ✅)
+
+**Infrastructure & Setup**
+- [x] Solution structure (Core, Infrastructure, Service, UnitTests)
+- [x] NuGet packages installed
+  - [x] NHapi v3.2.0 - HL7v2 parsing
+  - [x] Hl7.Fhir.R4 (Firely SDK) v5.12.2 - FHIR resources
+  - [x] Refit v7.2.22 - HTTP client
+  - [x] RabbitMQ.Client v6.8.1 - Message queue
+  - [x] Polly v8.5.0 - Retry policies
+  - [x] xUnit v2.9.2 + FluentAssertions v7.0.0 - Testing
+
+**HL7v2 Processing**
+- [x] **HL7v2 Parser** (`NHapiParser.cs` - 110 LOC)
+  - Parse ORU^R01 messages with NHapi
+  - Validate message structure
+  - Extract message type and control ID
+  - Handle special characters (UTF-8 encoding)
+- [x] **ACK Generator** (`AckGenerator.cs` - 110 LOC)
+  - Generate AA (Application Accept) acknowledgements
+  - Generate AE (Application Error) with error messages
+  - Generate AR (Application Reject) with rejection reasons
+  - Preserve Message Control ID (MSH-10)
+  - Fallback ACK for malformed messages
+
+**FHIR Transformation**
+- [x] **FHIR Transformer** (`FhirTransformer.cs` - 380 LOC)
+  - Transform HL7 PID → FHIR Patient
+  - Transform HL7 OBX → FHIR Observation
+  - Transform HL7 OBR → FHIR DiagnosticReport
+  - Map HL7 status codes → FHIR (F→final, P→preliminary)
+  - Map HL7 gender codes → FHIR (M→male, F→female)
+  - Map HL7 abnormal flags → FHIR interpretation (H→high, L→low, N→normal)
+  - Handle numeric (NM) and coded (CE) value types
+
+**MLLP & Messaging**
+- [x] **MLLP Server** (`MllpServer.cs` - 230 LOC)
+  - Async TCP listener on configurable port (default: 2575)
+  - MLLP protocol framing (0x0B, 0x1C, 0x0D)
+  - Concurrent connection handling
+  - Immediate ACK response (< 1 second)
+  - Read/write timeouts (30s/10s)
+  - Graceful error handling
+- [x] **RabbitMQ Integration** (`RabbitMqQueue.cs` - 174 LOC)
+  - Persistent message queue
+  - Dead Letter Queue (DLQ) for failed messages
+  - Publisher with message persistence
+  - Consumer with manual ACK/NACK
+  - QoS settings (prefetch: 1)
+
+**FHIR API Client**
+- [x] **LabFlow Client** (`LabFlowClient.cs` - 85 LOC)
+  - Refit-based HTTP client
+  - CreateOrUpdatePatient endpoint
+  - CreateObservation endpoint
+  - CreateDiagnosticReport endpoint
+  - Structured logging (Serilog)
+- [x] **Polly Retry Policies** (`Program.cs`)
+  - Exponential backoff (2s, 4s, 8s)
+  - Circuit breaker (5 failures → 30s open)
+  - Transient error handling (5xx, 408, 429)
+
+**Background Workers**
+- [x] **MllpListenerWorker** (`MllpListenerWorker.cs` - 50 LOC)
+  - Hosted service for MLLP TCP listener
+  - Configurable port via appsettings.json
+  - Graceful shutdown
+- [x] **MessageProcessorWorker** (`MessageProcessorWorker.cs` - 112 LOC)
+  - RabbitMQ consumer
+  - HL7 → FHIR transformation
+  - FHIR API posting (Patient → Observations → DiagnosticReport)
+  - Error handling with DLQ routing
+
+**Testing**
+- [x] **64 Unit Tests** - All passing ✅
+  - **HL7 Parsing** (15 tests): Valid parsing, PID/OBX/OBR extraction, special chars, validation
+  - **FHIR Transformation** (24 tests): Patient/Observation/DiagnosticReport mapping, status codes, gender/date parsing
+  - **ACK Generation** (8 tests): AA/AE/AR generation, Message Control ID preservation, fallback
+  - **MLLP Server** (6 tests): Valid/invalid messages, concurrent connections, error handling
+  - **FHIR Client** (10 tests): API calls, logging, error handling
+  - **Baseline** (1 test): Dummy test for CI/CD
+
+---
+
+## 🚧 In Progress
+
+- None - Phase 1 core integration complete!
+
+---
+
+## 📝 Next Steps (Future Phases)
+
+### Phase 2: Audit & Observability
+- [ ] Database audit logging (EF Core + PostgreSQL)
+- [ ] Message persistence (raw HL7 + FHIR resources)
+- [ ] Prometheus metrics (messages received, processed, failed)
+- [ ] Grafana dashboards (throughput, latency, error rates)
+- [ ] Alerting (queue depth, API errors)
+
+### Phase 3: Bidirectional (FHIR → HL7v2)
+- [ ] FHIR ServiceRequest → HL7v2 ORM^O01 transformer
+- [ ] Order routing by LOINC code → analyzer mapping
 - [ ] Order status tracking
 - [ ] Result linking (ORM → ORU correlation)
 
-### Phase 4: Production Readiness (Week 5)
-- [ ] Unit tests (NHapi parsing, transformation logic)
-- [ ] Integration tests (TestContainers + RabbitMQ)
+### Phase 4: Production Hardening
+- [ ] Integration tests (TestContainers + RabbitMQ + LabFlow API)
 - [ ] Performance testing (1000+ messages/hour)
-- [ ] Error handling (malformed messages, network failures)
-- [ ] Monitoring and alerting (Prometheus + Grafana)
-- [ ] IEC 62304 documentation (if applicable)
-
-### Phase 5: Deployment (Week 6)
 - [ ] Docker containerization
-- [ ] Azure Container Apps / Kubernetes deployment
-- [ ] Configuration management (Azure Key Vault)
+- [ ] Azure deployment (Container Apps + Service Bus)
+- [ ] IEC 62304 documentation (if targeting medical device software roles)
 - [ ] CI/CD pipeline (GitHub Actions)
 
 ---

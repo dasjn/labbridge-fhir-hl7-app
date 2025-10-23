@@ -65,10 +65,14 @@ public class FhirTransformer : IHL7ToFhirTransformer
         }
         catch (Exception ex)
         {
+            // Log more details for debugging
+            Console.WriteLine($"[FhirTransformer] Transform ERROR: {ex.GetType().Name} - {ex.Message}");
+            Console.WriteLine($"[FhirTransformer] Stack trace: {ex.StackTrace}");
+
             return new TransformationResult
             {
                 Success = false,
-                ErrorMessage = $"Transformation failed: {ex.Message}"
+                ErrorMessage = $"Transformation failed: {ex.Message}\nStack: {ex.StackTrace}"
             };
         }
     }

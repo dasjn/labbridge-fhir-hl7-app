@@ -1,0 +1,72 @@
+version: '3.8'
+
+# ====================
+# Docker Compose para E2E Testing
+# ====================
+# Levanta:
+# 1. RabbitMQ - Message queue para LabBridge
+# 2. LabFlow API - FHIR server (target de LabBridge)
+#
+# LabBridge se levanta programáticamente en el test (no en Docker)
+
+services:
+  # ====================
+  # RabbitMQ - Message Queue
+  # ====================
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: labbridge-test-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP protocol
+      - "15672:15672" # Management UI (http://localhost:15672, guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - labbridge-test-network
+
+  # ====================
+  # LabFlow API - FHIR Server
+  # ====================
+  labflow-api:
+    image: labflow-api:latest
+    container_name: labbridge-test-labflow
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Data Source=/app/data/labflow-test.db"
+      # JWT settings (mismo que development)
+      JwtSettings__SecretKey: "YourSuperSecretKeyThatIsAtLeast32CharactersLong!"
+      JwtSettings__Issuer: "LabFlowAPI"
+      JwtSettings__Audience: "LabFlowClients"
+      JwtSettings__ExpirationMinutes: "60"
+      # TESTING MODE: Deshabilitar autenticación para E2E tests
+      # (En producción esto NUNCA debe estar habilitado)
+      DISABLE_AUTH_FOR_TESTING: "true"
+    volumes:
+      # Persistir la base de datos SQLite entre reinicios
+      - labflow-test-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - labbridge-test-network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+networks:
+  labbridge-test-network:
+    driver: bridge
+
+volumes:
+  labflow-test-data:

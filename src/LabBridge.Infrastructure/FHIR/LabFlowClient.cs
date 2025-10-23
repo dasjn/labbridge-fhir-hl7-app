@@ -7,6 +7,7 @@ namespace LabBridge.Infrastructure.FHIR;
 /// <summary>
 /// Implementation of IFhirClient that wraps the Refit ILabFlowApi
 /// Provides additional logging and error handling
+/// Serialization/deserialization is handled automatically by Refit + FhirHttpContentSerializer
 /// </summary>
 public class LabFlowClient : IFhirClient
 {
@@ -26,6 +27,7 @@ public class LabFlowClient : IFhirClient
 
         try
         {
+            // Refit + FhirHttpContentSerializer handle serialization/deserialization automatically
             var result = await _api.CreatePatientAsync(patient, cancellationToken);
 
             _logger.LogInformation("Patient created/updated successfully: MRN={Mrn}, FhirId={FhirId}",
@@ -47,6 +49,7 @@ public class LabFlowClient : IFhirClient
 
         try
         {
+            // Refit + FhirHttpContentSerializer handle serialization/deserialization automatically
             var result = await _api.CreateObservationAsync(observation, cancellationToken);
 
             _logger.LogInformation("Observation created successfully: Code={Code}, FhirId={FhirId}",
@@ -68,6 +71,7 @@ public class LabFlowClient : IFhirClient
 
         try
         {
+            // Refit + FhirHttpContentSerializer handle serialization/deserialization automatically
             var result = await _api.CreateDiagnosticReportAsync(report, cancellationToken);
 
             _logger.LogInformation("DiagnosticReport created successfully: Code={Code}, FhirId={FhirId}",

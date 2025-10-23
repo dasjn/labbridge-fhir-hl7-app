@@ -12,6 +12,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
     <PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
+    <PackageReference Include="Refit.Newtonsoft.Json" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
