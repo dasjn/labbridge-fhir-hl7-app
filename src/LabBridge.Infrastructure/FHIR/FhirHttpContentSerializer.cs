@@ -59,15 +59,22 @@ public class FhirHttpContentSerializer : IHttpContentSerializer
         }
 
         // Deserialize using FhirJsonParser
-        var resource = _parser.Parse<Base>(json);
+        // We need to parse as Base first, then cast to T because FhirJsonParser.Parse<T>
+        // requires T to inherit from Base, but IHttpContentSerializer interface doesn't have that constraint
+        var resourceType = typeof(T);
 
-        if (resource is T typedResource)
+        if (!typeof(Base).IsAssignableFrom(resourceType))
         {
-            return typedResource;
+            throw new ArgumentException($"Type {resourceType.Name} must inherit from Hl7.Fhir.Model.Base");
         }
 
-        throw new InvalidOperationException(
-            $"Expected FHIR resource of type {typeof(T).Name}, but got {resource.GetType().Name}");
+        // Use reflection to call Parse<T> with the correct type
+        var parseMethod = _parser.GetType().GetMethod(nameof(FhirJsonParser.Parse), new[] { typeof(string) })!
+            .MakeGenericMethod(resourceType);
+
+        var resource = parseMethod.Invoke(_parser, new object[] { json });
+
+        return (T?)resource;
     }
 
     /// <summary>
