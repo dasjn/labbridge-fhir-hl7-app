@@ -88,7 +88,4 @@ try {
     if ($client) { $client.Close() }
     Write-Host ""
     Write-Host "Connection closed" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "Press any key to exit..." -ForegroundColor Yellow
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }

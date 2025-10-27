@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using LabBridge.Core.Interfaces;
+using LabBridge.Infrastructure.Observability;
 using Microsoft.Extensions.Logging;
 
 namespace LabBridge.Infrastructure.HL7;
@@ -80,6 +82,9 @@ public class MllpServer : IMllpServer
         var clientEndpoint = client.Client.RemoteEndPoint?.ToString();
         _logger.LogInformation("Client connected: {ClientEndpoint}", clientEndpoint);
 
+        // Track active connections
+        LabBridgeMetrics.ActiveMllpConnections.Inc();
+
         try
         {
             using (client)
@@ -150,6 +155,8 @@ public class MllpServer : IMllpServer
         }
         finally
         {
+            // Track connection closed
+            LabBridgeMetrics.ActiveMllpConnections.Dec();
             _logger.LogInformation("Client disconnected: {ClientEndpoint}", clientEndpoint);
         }
     }
@@ -182,19 +189,30 @@ public class MllpServer : IMllpServer
 
     private async Task<string> ProcessMessageAsync(string hl7Message)
     {
+        var stopwatch = Stopwatch.StartNew();
+        string? messageType = null;
+        string ackCode = "AE"; // Default to error
+
         try
         {
             // Validate message
             if (!_parser.IsValid(hl7Message))
             {
                 _logger.LogWarning("Received invalid HL7 message");
+                LabBridgeMetrics.AcksSent.WithLabels("AR").Inc(); // AR = Reject
                 return _ackGenerator.GenerateErrorAck(hl7Message, "Invalid HL7 message structure");
             }
 
             // Parse message to validate it
             var parsedMessage = _parser.Parse(hl7Message);
-            var messageType = _parser.GetMessageType(hl7Message);
+            messageType = _parser.GetMessageType(hl7Message);
             var messageControlId = _parser.GetMessageControlId(hl7Message);
+
+            stopwatch.Stop();
+
+            // Track metrics
+            LabBridgeMetrics.MessagesReceived.WithLabels(messageType ?? "UNKNOWN").Inc();
+            LabBridgeMetrics.Hl7ParsingDuration.WithLabels(messageType ?? "UNKNOWN").Observe(stopwatch.Elapsed.TotalSeconds);
 
             _logger.LogInformation("Parsed HL7 message: Type={MessageType}, ControlId={ControlId}",
                 messageType, messageControlId);
@@ -204,12 +222,16 @@ public class MllpServer : IMllpServer
 
             // Generate ACK (success) - send immediately to analyzer
             var ackMessage = _ackGenerator.GenerateAcceptAck(hl7Message);
+            ackCode = "AA"; // AA = Application Accept
+            LabBridgeMetrics.AcksSent.WithLabels(ackCode).Inc();
 
             return ackMessage;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing HL7 message");
+            ackCode = "AE"; // AE = Application Error
+            LabBridgeMetrics.AcksSent.WithLabels(ackCode).Inc();
             return _ackGenerator.GenerateErrorAck(hl7Message, $"Processing error: {ex.Message}");
         }
     }

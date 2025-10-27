@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Hl7.Fhir.Model;
 using LabBridge.Core.Interfaces;
+using LabBridge.Infrastructure.Observability;
 using Microsoft.Extensions.Logging;
 
 namespace LabBridge.Infrastructure.FHIR;
@@ -25,10 +27,20 @@ public class LabFlowClient : IFhirClient
         var mrn = patient.Identifier.FirstOrDefault()?.Value;
         _logger.LogInformation("Creating/updating Patient in FHIR API: MRN={Mrn}", mrn);
 
+        var stopwatch = Stopwatch.StartNew();
+        var statusCode = "500"; // Default to error
+
         try
         {
             // Refit + FhirHttpContentSerializer handle serialization/deserialization automatically
             var result = await _api.CreatePatientAsync(patient, cancellationToken);
+
+            stopwatch.Stop();
+            statusCode = "201"; // Created
+
+            // Track metrics
+            LabBridgeMetrics.FhirApiCalls.WithLabels("Patient", "POST", statusCode).Inc();
+            LabBridgeMetrics.FhirApiCallDuration.WithLabels("Patient", "POST").Observe(stopwatch.Elapsed.TotalSeconds);
 
             _logger.LogInformation("Patient created/updated successfully: MRN={Mrn}, FhirId={FhirId}",
                 mrn, result.Id);
@@ -37,6 +49,12 @@ public class LabFlowClient : IFhirClient
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            statusCode = "500"; // Internal error
+
+            // Track failure metrics
+            LabBridgeMetrics.FhirApiCalls.WithLabels("Patient", "POST", statusCode).Inc();
+
             _logger.LogError(ex, "Failed to create/update Patient: MRN={Mrn}", mrn);
             throw;
         }
@@ -47,10 +65,20 @@ public class LabFlowClient : IFhirClient
         var code = observation.Code?.Coding?.FirstOrDefault()?.Code;
         _logger.LogInformation("Creating Observation in FHIR API: Code={Code}", code);
 
+        var stopwatch = Stopwatch.StartNew();
+        var statusCode = "500"; // Default to error
+
         try
         {
             // Refit + FhirHttpContentSerializer handle serialization/deserialization automatically
             var result = await _api.CreateObservationAsync(observation, cancellationToken);
+
+            stopwatch.Stop();
+            statusCode = "201"; // Created
+
+            // Track metrics
+            LabBridgeMetrics.FhirApiCalls.WithLabels("Observation", "POST", statusCode).Inc();
+            LabBridgeMetrics.FhirApiCallDuration.WithLabels("Observation", "POST").Observe(stopwatch.Elapsed.TotalSeconds);
 
             _logger.LogInformation("Observation created successfully: Code={Code}, FhirId={FhirId}",
                 code, result.Id);
@@ -59,6 +87,12 @@ public class LabFlowClient : IFhirClient
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            statusCode = "500"; // Internal error
+
+            // Track failure metrics
+            LabBridgeMetrics.FhirApiCalls.WithLabels("Observation", "POST", statusCode).Inc();
+
             _logger.LogError(ex, "Failed to create Observation: Code={Code}", code);
             throw;
         }
@@ -69,10 +103,20 @@ public class LabFlowClient : IFhirClient
         var code = report.Code?.Coding?.FirstOrDefault()?.Code;
         _logger.LogInformation("Creating DiagnosticReport in FHIR API: Code={Code}", code);
 
+        var stopwatch = Stopwatch.StartNew();
+        var statusCode = "500"; // Default to error
+
         try
         {
             // Refit + FhirHttpContentSerializer handle serialization/deserialization automatically
             var result = await _api.CreateDiagnosticReportAsync(report, cancellationToken);
+
+            stopwatch.Stop();
+            statusCode = "201"; // Created
+
+            // Track metrics
+            LabBridgeMetrics.FhirApiCalls.WithLabels("DiagnosticReport", "POST", statusCode).Inc();
+            LabBridgeMetrics.FhirApiCallDuration.WithLabels("DiagnosticReport", "POST").Observe(stopwatch.Elapsed.TotalSeconds);
 
             _logger.LogInformation("DiagnosticReport created successfully: Code={Code}, FhirId={FhirId}",
                 code, result.Id);
@@ -81,6 +125,12 @@ public class LabFlowClient : IFhirClient
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            statusCode = "500"; // Internal error
+
+            // Track failure metrics
+            LabBridgeMetrics.FhirApiCalls.WithLabels("DiagnosticReport", "POST", statusCode).Inc();
+
             _logger.LogError(ex, "Failed to create DiagnosticReport: Code={Code}", code);
             throw;
         }

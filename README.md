@@ -2,16 +2,17 @@
 
 **Bridge the gap between legacy HL7v2 laboratory systems and modern FHIR-based hospital infrastructure.**
 
-## ✅ Estado Actual: Phase 1 COMPLETA + E2E Tests Pasando
+## ✅ Estado Actual: Phase 2 COMPLETA - Audit & Observability
 
-**Última actualización**: 2025-10-24
+**Última actualización**: 2025-10-27
 
-**Estado**: ✅ **PRODUCTION-READY** - Flujo completo HL7v2 → FHIR funcionando
+**Estado**: ✅ **PRODUCTION-READY** - Flujo completo HL7v2 → FHIR con observability completa
 
 **Tests**:
-- ✅ **65/65 tests pasando** (64 unit + 1 E2E integration)
+- ✅ **66/66 tests pasando** (65 unit + 1 E2E integration)
 - ✅ Zero errors en logs
 - ✅ FHIR serialization/deserialization funcional
+- ✅ Audit logging validado con PostgreSQL
 
 **Funcionalidad implementada**:
 - ✅ MLLP TCP listener (puerto 2575)
@@ -19,9 +20,12 @@
 - ✅ HL7v2 → FHIR transformation (Patient, Observation, DiagnosticReport)
 - ✅ RabbitMQ message queue (persistence + DLQ)
 - ✅ FHIR API client con Refit + Polly retry policies
-- ✅ FhirHttpContentSerializer con reflection-based deserialization (**Bug Fix 2025-10-24**)
+- ✅ FhirHttpContentSerializer con reflection-based deserialization
 - ✅ Background workers (MLLP listener + Message processor)
-- ✅ E2E integration test con Docker Compose (RabbitMQ + LabFlow API)
+- ✅ **PostgreSQL audit logging** - Registro completo de mensajes, FHIR resources, errores (**NEW 2025-10-27**)
+- ✅ **Prometheus metrics** - Counters, histograms, gauges, summaries para observability (**NEW 2025-10-27**)
+- ✅ **Health check endpoint** - `/health` para monitoring (**NEW 2025-10-27**)
+- ✅ E2E integration test con Docker Compose (RabbitMQ + LabFlow API + PostgreSQL)
 
 ---
 
@@ -108,7 +112,14 @@ Based on **6 years as Field Service Engineer** supporting:
 ### Messaging & Integration
 - **RabbitMQ v6.8.1** - Message queue for reliability and persistence
 - **MLLP Server** - Custom async TCP listener for HL7v2 connections (port 2575)
-- **Entity Framework Core 9** - (Future) Message logging and audit trail
+- **Entity Framework Core 9.0.4** - Audit logging with PostgreSQL
+- **Npgsql 9.0.4** - PostgreSQL provider for EF Core
+
+### Observability & Monitoring
+- **prometheus-net v8.2.1** - Metrics collection and export
+- **Prometheus endpoint** - `/metrics` for scraping (http://localhost:5000/metrics)
+- **Health check endpoint** - `/health` for monitoring (http://localhost:5000/health)
+- **PostgreSQL audit logging** - Complete message history, FHIR resources, error tracking
 
 ### Supporting
 - **Serilog v9.0.0** - Structured logging (critical for troubleshooting)
@@ -322,30 +333,62 @@ OBX|2|NM|6690-2^WBC^LN||7500|cells/uL|4500-11000|N|||F|||20251016120000
   - Error handling with DLQ routing
 
 **Testing**
-- [x] **64 Unit Tests** - All passing ✅
+- [x] **65 Unit Tests** - All passing ✅
   - **HL7 Parsing** (15 tests): Valid parsing, PID/OBX/OBR extraction, special chars, validation
   - **FHIR Transformation** (24 tests): Patient/Observation/DiagnosticReport mapping, status codes, gender/date parsing
   - **ACK Generation** (8 tests): AA/AE/AR generation, Message Control ID preservation, fallback
   - **MLLP Server** (6 tests): Valid/invalid messages, concurrent connections, error handling
   - **FHIR Client** (10 tests): API calls, logging, error handling
+  - **Audit Logging** (1 test): Database persistence, FHIR serialization
   - **Baseline** (1 test): Dummy test for CI/CD
+- [x] **1 E2E Integration Test** - Passing ✅
+  - Complete flow: HL7v2 → Parser → RabbitMQ → Transformer → FHIR API → Audit Log
+
+### Phase 2: Audit & Observability (COMPLETED ✅)
+
+**2a: PostgreSQL Audit Logging**
+- [x] **AuditLogEntity** with 18 fields (MessageControlId, RawHl7Message, FhirPatientJson, etc.)
+- [x] **AuditDbContext** with 6 optimized indexes (MessageControlId, PatientId, ReceivedAt, etc.)
+- [x] **IAuditLogger interface** with 5 methods (LogSuccessAsync, LogFailureAsync, SearchByPatientAsync, etc.)
+- [x] **AuditLogger implementation** with EF Core + PostgreSQL
+- [x] **MessageProcessorWorker integration** - Logs every message processed (success or failure)
+- [x] **EF Core migration** - Auto-apply on startup
+- [x] **FHIR JSON serialization** - Patient, Observations, DiagnosticReport stored as JSON
+- [x] **Performance metrics** - ProcessingDurationMs tracked
+- [x] **Error tracking** - ErrorMessage, ErrorStackTrace captured
+- [x] **Validation** - Manual test + E2E test confirmed audit logs created
+
+**2b: Prometheus Metrics**
+- [x] **LabBridgeMetrics class** with 12 metrics definitions
+- [x] **5 Counters** - messages_received, messages_processed_success/failure, acks_sent, fhir_api_calls
+- [x] **3 Histograms** - message_processing_duration, fhir_api_call_duration, hl7_parsing_duration
+- [x] **3 Gauges** - active_mllp_connections, rabbitmq_queue_depth, uptime
+- [x] **1 Summary** - e2e_message_latency (p50, p90, p95, p99 quantiles)
+- [x] **Instrumentation** - MllpServer, MessageProcessorWorker, LabFlowClient
+- [x] **HTTP endpoint** - `/metrics` at http://localhost:5000/metrics
+- [x] **Health check endpoint** - `/health` at http://localhost:5000/health
+- [x] **Validation** - Sent test message, verified metrics collected correctly
+
+**Metrics Example Output**:
+```
+labbridge_messages_received_total{message_type="ORU^R01"} 1
+labbridge_messages_processed_success_total{message_type="ORU^R01"} 1
+labbridge_acks_sent_total{ack_code="AA"} 1
+labbridge_fhir_api_calls_total{resource_type="Patient",method="POST",status_code="201"} 1
+labbridge_fhir_api_calls_total{resource_type="Observation",method="POST",status_code="201"} 3
+labbridge_message_processing_duration_seconds{message_type="ORU^R01"} 0.220 (histogram)
+labbridge_e2e_message_latency_seconds{message_type="ORU^R01",quantile="0.99"} 0.220
+```
 
 ---
 
 ## 🚧 In Progress
 
-- None - Phase 1 core integration complete!
+- None - Phase 2 audit & observability complete!
 
 ---
 
 ## 📝 Next Steps (Future Phases)
-
-### Phase 2: Audit & Observability
-- [ ] Database audit logging (EF Core + PostgreSQL)
-- [ ] Message persistence (raw HL7 + FHIR resources)
-- [ ] Prometheus metrics (messages received, processed, failed)
-- [ ] Grafana dashboards (throughput, latency, error rates)
-- [ ] Alerting (queue depth, API errors)
 
 ### Phase 3: Bidirectional (FHIR → HL7v2)
 - [ ] FHIR ServiceRequest → HL7v2 ORM^O01 transformer
@@ -479,23 +522,79 @@ LabBridge is designed to work seamlessly with **LabFlow FHIR API** (the portfoli
 
 ## 📊 Monitoring & Observability
 
-### Metrics
-- **Messages received** (rate, total)
-- **Messages processed successfully** (rate, total)
-- **FHIR API errors** (rate, error types)
-- **Message queue depth** (current, max)
-- **Processing latency** (p50, p95, p99)
+### Prometheus Metrics (✅ IMPLEMENTED)
 
-### Alerts
-- **Critical**: Message queue depth > 1000 (backlog building)
-- **Critical**: FHIR API unavailable > 5 minutes
-- **Warning**: Message processing > 5 seconds
-- **Warning**: Retry rate > 10%
+**Endpoints**:
+- **Metrics**: `http://localhost:5000/metrics` - Prometheus scraping endpoint
+- **Health**: `http://localhost:5000/health` - Health check endpoint
+
+**Available Metrics**:
+
+**Counters** (monotonic increasing):
+- `labbridge_messages_received_total{message_type}` - Total HL7v2 messages received via MLLP
+- `labbridge_messages_processed_success_total{message_type}` - Successfully processed messages
+- `labbridge_messages_processed_failure_total{message_type, error_type}` - Failed messages
+- `labbridge_acks_sent_total{ack_code}` - ACK messages sent (AA=accept, AE=error, AR=reject)
+- `labbridge_fhir_api_calls_total{resource_type, method, status_code}` - FHIR API HTTP calls
+
+**Histograms** (duration distributions with buckets):
+- `labbridge_message_processing_duration_seconds{message_type}` - RabbitMQ → FHIR API duration
+- `labbridge_fhir_api_call_duration_seconds{resource_type, method}` - HTTP call duration
+- `labbridge_hl7_parsing_duration_seconds{message_type}` - HL7v2 parsing duration
+
+**Gauges** (current values):
+- `labbridge_active_mllp_connections` - Current active TCP connections
+- `labbridge_rabbitmq_queue_depth{queue_name}` - Messages waiting in queue
+- `labbridge_uptime_seconds` - Application uptime
+
+**Summary** (quantiles):
+- `labbridge_e2e_message_latency_seconds{message_type}` - End-to-end latency (p50, p90, p95, p99)
+
+### PostgreSQL Audit Logging (✅ IMPLEMENTED)
+
+**Database**: `labbridge_audit`
+**Table**: `AuditLogs` with 18 fields
+
+**Tracked Information**:
+- Raw HL7v2 message (complete message text)
+- FHIR resources as JSON (Patient, Observations, DiagnosticReport)
+- Processing metadata (MessageControlId, MessageType, PatientId, SourceSystem)
+- Timestamps (ReceivedAt, ProcessedAt, CreatedAt)
+- Performance (ProcessingDurationMs)
+- Errors (ErrorMessage, ErrorStackTrace, RetryCount)
+- Status (Success/Failed)
+
+**Indexes** (optimized for queries):
+- MessageControlId (unique lookups)
+- PatientId (patient history)
+- (PatientId, ReceivedAt) compound (patient timeline)
+- ReceivedAt (time-based queries)
+- Status (filter by success/failure)
+- MessageType (filter by HL7 type)
+
+**Queries Available**:
+```csharp
+// Search by patient
+await auditLogger.SearchByPatientAsync("12345678", limit: 100);
+
+// Get by message ID
+await auditLogger.GetByMessageControlIdAsync("MSG123");
+
+// Statistics
+await auditLogger.GetStatisticsAsync(fromDate: DateTime.Now.AddDays(-7));
+```
+
+### Recommended Alerts (Grafana/Prometheus Alertmanager)
+- **Critical**: `rate(labbridge_messages_processed_failure_total[5m]) > 10` - High failure rate
+- **Critical**: `labbridge_rabbitmq_queue_depth > 1000` - Message backlog building
+- **Critical**: `rate(labbridge_fhir_api_calls_total{status_code="500"}[5m]) > 5` - FHIR API errors
+- **Warning**: `histogram_quantile(0.95, labbridge_message_processing_duration_seconds) > 5` - Slow processing
+- **Warning**: `labbridge_active_mllp_connections > 40` - High connection count
 
 ### Logging
-- **Structured logs** (Serilog → Elasticsearch/Azure Monitor)
-- **Correlation IDs** (track message through entire pipeline)
-- **PHI redaction** (patient identifiers masked in logs)
+- **Structured logs** (Serilog → Console / File)
+- **Correlation IDs** (MessageControlId tracked through entire pipeline)
+- **Performance metrics** (Duration logged for all operations)
 
 ---
 

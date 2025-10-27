@@ -9,9 +9,11 @@ using Microsoft.Extensions.Hosting;
 using Xunit;
 using Xunit.Abstractions;
 using LabBridge.Core.Interfaces;
+using LabBridge.Infrastructure.Data;
 using LabBridge.Infrastructure.HL7;
 using LabBridge.Infrastructure.FHIR;
 using LabBridge.Infrastructure.Messaging;
+using Microsoft.EntityFrameworkCore;
 using Refit;
 using Polly;
 using Polly.Extensions.Http;
@@ -233,7 +235,8 @@ public class EndToEndTests : IAsyncLifetime
                 { "RabbitMq:Port", "5672" },
                 { "RabbitMq:Username", "guest" },
                 { "RabbitMq:Password", "guest" },
-                { "FhirApi:BaseUrl", "http://localhost:8080" }
+                { "FhirApi:BaseUrl", "http://localhost:8080" },
+                { "Database:ConnectionString", "Host=localhost;Database=labbridge_audit;Username=postgres;Password=dev_password;Port=5432" }
             })
             .Build();
 
@@ -250,6 +253,12 @@ public class EndToEndTests : IAsyncLifetime
 
                 // FHIR services
                 services.AddSingleton<IHL7ToFhirTransformer, FhirTransformer>();
+
+                // Database and Audit Logging
+                var connectionString = configuration["Database:ConnectionString"]!;
+                services.AddDbContext<AuditDbContext>(options =>
+                    options.UseNpgsql(connectionString));
+                services.AddScoped<IAuditLogger, AuditLogger>();
 
                 // Messaging services
                 services.AddSingleton<IMessageQueue, RabbitMqQueue>();
