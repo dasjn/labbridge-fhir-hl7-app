@@ -4,15 +4,16 @@
 
 ## ✅ Estado Actual: Phase 2 COMPLETA - Audit & Observability
 
-**Última actualización**: 2025-10-27
+**Última actualización**: 2025-10-28
 
 **Estado**: ✅ **PRODUCTION-READY** - Flujo completo HL7v2 → FHIR con observability completa
 
 **Tests**:
-- ✅ **66/66 tests pasando** (65 unit + 1 E2E integration)
+- ✅ **65/65 tests** (64 unit + 1 E2E integration)
 - ✅ Zero errors en logs
 - ✅ FHIR serialization/deserialization funcional
 - ✅ Audit logging validado con PostgreSQL
+- ✅ Prometheus metrics endpoint funcional
 
 **Funcionalidad implementada**:
 - ✅ MLLP TCP listener (puerto 2575)
@@ -333,16 +334,16 @@ OBX|2|NM|6690-2^WBC^LN||7500|cells/uL|4500-11000|N|||F|||20251016120000
   - Error handling with DLQ routing
 
 **Testing**
-- [x] **65 Unit Tests** - All passing ✅
+- [x] **64 Unit Tests** - All passing ✅
   - **HL7 Parsing** (15 tests): Valid parsing, PID/OBX/OBR extraction, special chars, validation
   - **FHIR Transformation** (24 tests): Patient/Observation/DiagnosticReport mapping, status codes, gender/date parsing
   - **ACK Generation** (8 tests): AA/AE/AR generation, Message Control ID preservation, fallback
   - **MLLP Server** (6 tests): Valid/invalid messages, concurrent connections, error handling
   - **FHIR Client** (10 tests): API calls, logging, error handling
-  - **Audit Logging** (1 test): Database persistence, FHIR serialization
   - **Baseline** (1 test): Dummy test for CI/CD
 - [x] **1 E2E Integration Test** - Passing ✅
-  - Complete flow: HL7v2 → Parser → RabbitMQ → Transformer → FHIR API → Audit Log
+  - Complete flow: HL7v2 → Parser → RabbitMQ → Transformer → FHIR API
+  - Validates audit logging in PostgreSQL with FHIR JSON serialization
 
 ### Phase 2: Audit & Observability (COMPLETED ✅)
 
@@ -485,7 +486,7 @@ LabBridge is designed to work seamlessly with **LabFlow FHIR API** (the portfoli
 
 ## 🧪 Testing Strategy
 
-### Unit Tests (48 tests - All passing ✅)
+### Unit Tests (64 tests - All passing ✅)
 
 **HL7 Parsing (15 tests)**
 - Parse valid ORU^R01 messages
@@ -508,10 +509,22 @@ LabBridge is designed to work seamlessly with **LabFlow FHIR API** (the portfoli
 - Preserve Message Control ID (MSH-10)
 - Fallback ACK for malformed messages
 
-### Integration Tests
-- End-to-end: HL7v2 message → MLLP → Transform → FHIR API → Database
-- TestContainers: RabbitMQ + PostgreSQL + LabFlow API
-- Error scenarios: Malformed messages, network failures, FHIR API errors
+**MLLP Server (6 tests)**
+- Valid/invalid message handling
+- Concurrent connections
+- Timeout handling
+
+**FHIR Client (10 tests)**
+- API calls for Patient, Observation, DiagnosticReport
+- Logging and error handling
+
+**Baseline (1 test)**
+- Project structure validation
+
+### Integration Tests (1 test - All passing ✅)
+- **E2E Integration Test**: Complete flow HL7v2 message → MLLP → Transform → FHIR API
+- Validates audit logging in PostgreSQL
+- Uses Docker Compose with RabbitMQ + LabFlow API
 
 ### Performance Tests
 - **Throughput**: 1000 messages/hour sustained

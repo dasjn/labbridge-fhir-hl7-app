@@ -1,0 +1,15 @@
+# Grafana dashboard provisioning configuration
+# Automatically loads dashboards from /var/lib/grafana/dashboards
+apiVersion: 1
+
+providers:
+  - name: 'LabBridge Dashboards'
+    orgId: 1
+    folder: 'LabBridge'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
