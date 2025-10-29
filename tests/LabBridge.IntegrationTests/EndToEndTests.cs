@@ -64,8 +64,18 @@ public class EndToEndTests : IAsyncLifetime
         _labFlowHttpClient = new HttpClient { BaseAddress = new Uri("http://localhost:8080") };
         _output.WriteLine("   ✓ HTTP Client configurado");
 
-        _output.WriteLine("4. Levantando LabBridge service...");
+        _output.WriteLine("4. Aplicando database migrations...");
         _labBridgeHost = CreateLabBridgeHost();
+
+        // Apply EF Core migrations before starting the service
+        using (var scope = _labBridgeHost.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+            await context.Database.MigrateAsync();
+        }
+        _output.WriteLine("   ✓ Database migrations applied");
+
+        _output.WriteLine("5. Levantando LabBridge service...");
         await _labBridgeHost.StartAsync();
         _output.WriteLine("   ✓ LabBridge está corriendo");
 
@@ -236,7 +246,7 @@ public class EndToEndTests : IAsyncLifetime
                 { "RabbitMq:Username", "guest" },
                 { "RabbitMq:Password", "guest" },
                 { "FhirApi:BaseUrl", "http://localhost:8080" },
-                { "Database:ConnectionString", "Host=localhost;Database=labbridge_audit;Username=postgres;Password=dev_password;Port=5432" }
+                { "Database:ConnectionString", "Host=localhost;Database=labbridge_audit;Username=labbridge;Password=labbridge123;Port=5432" }
             })
             .Build();
 

@@ -6,6 +6,7 @@ version: '3.8'
 # Levanta:
 # 1. RabbitMQ - Message queue para LabBridge
 # 2. LabFlow API - FHIR server (target de LabBridge)
+# 3. PostgreSQL - Audit log database
 #
 # LabBridge se levanta programáticamente en el test (no en Docker)
 
@@ -24,6 +25,26 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - labbridge-test-network
+
+  # ====================
+  # PostgreSQL - Audit Log Database
+  # ====================
+  postgres:
+    image: postgres:16-alpine
+    container_name: labbridge-test-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: labbridge
+      POSTGRES_PASSWORD: labbridge123
+      POSTGRES_DB: labbridge_audit
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labbridge -d labbridge_audit"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -50,9 +71,9 @@ services:
       # TESTING MODE: Deshabilitar autenticación para E2E tests
       # (En producción esto NUNCA debe estar habilitado)
       DISABLE_AUTH_FOR_TESTING: "true"
-    volumes:
-      # Persistir la base de datos SQLite entre reinicios
-      - labflow-test-data:/app/data
+    tmpfs:
+      # Usar tmpfs (RAM) para la base de datos - NO persiste entre reinicios
+      - /app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 5s
@@ -63,10 +84,9 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
 
 networks:
   labbridge-test-network:
     driver: bridge
-
-volumes:
-  labflow-test-data:
