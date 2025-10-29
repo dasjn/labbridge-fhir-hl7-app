@@ -1,323 +1,314 @@
-# Manual Testing Guide - LabBridge
+# Testing Guide - LabBridge
 
-Esta guía te muestra cómo testear manualmente el flujo completo: **HL7v2 MLLP → RabbitMQ → FHIR Transformation**.
-
----
-
-## Requisitos Previos
-
-- ✅ Docker Desktop instalado y corriendo
-- ✅ .NET 8 SDK instalado
-- ✅ PowerShell (viene con Windows)
+Esta guía muestra cómo ejecutar los tests de LabBridge usando los scripts automatizados.
 
 ---
 
-## Paso 1: Levantar RabbitMQ
+## 📋 Tipos de Tests
 
-Desde la raíz del proyecto:
+### 1. Unit Tests (Rápido - ~10 segundos)
+- **64 unit tests** sin dependencias externas
+- No requiere Docker, RabbitMQ ni servicios externos
+- Ideal para desarrollo rápido (TDD)
+
+### 2. E2E Integration Tests (Completo - ~2 minutos)
+- **1 test E2E** que valida el flujo completo
+- Requiere Docker Desktop corriendo
+- Levanta: RabbitMQ, PostgreSQL, LabFlow API
+- Valida: HL7v2 → FHIR transformation + audit logging
+
+---
+
+## 🚀 Quick Start
+
+### Opción 1: Solo Unit Tests (Desarrollo Rápido)
+
+```powershell
+.\scripts\run-unit-tests.ps1
+```
+
+**Output esperado:**
+```
+==========================================
+LabBridge Unit Test Runner
+==========================================
+
+Ejecutando 64 unit tests...
+[Test execution...]
+Correctas! - Con error: 0, Superado: 64, Total: 64
+
+==========================================
+SUCCESS: Unit tests passed
+```
+
+**Tiempo**: ~10 segundos
+
+---
+
+### Opción 2: E2E Tests (Validación Completa)
+
+**Prerequisito**: Docker Desktop instalado y corriendo
+
+```powershell
+.\scripts\run-e2e-tests.ps1
+```
+
+**Output esperado:**
+```
+==========================================
+LabBridge E2E Test Runner
+==========================================
+
+[1/5] Cleaning previous containers...
+Done: Containers cleaned
+
+[2/5] Starting services (RabbitMQ, PostgreSQL, LabFlow API)...
+[Services starting...]
+
+[3/5] Waiting for services to be ready (20 seconds)...
+  Checking RabbitMQ... RabbitMQ is ready
+  Checking LabFlow API... LabFlow API is ready
+  Checking PostgreSQL... PostgreSQL is ready
+
+[4/5] Running E2E tests...
+==========================================
+[Test output...]
+Correctas! - Con error: 0, Superado: 1, Total: 1
+
+[5/5] Cleaning up containers...
+
+==========================================
+SUCCESS: E2E tests passed
+```
+
+**Tiempo**: ~2 minutos (incluye startup de Docker)
+
+---
+
+## 🧪 Manual Testing - Generar Tráfico Realista
+
+Para monitorear el sistema en tiempo real con Grafana dashboards:
+
+### Paso 1: Levantar Todo el Stack
 
 ```bash
+cd docker
 docker-compose up -d
 ```
 
-**¿Qué hace esto?**
-- Descarga la imagen de RabbitMQ (primera vez, ~200MB)
-- Levanta RabbitMQ en background (`-d` = detached)
-- Expone puertos 5672 (AMQP) y 15672 (Management UI)
+Esto levanta:
+- LabBridge service (puerto 2575 MLLP)
+- RabbitMQ (puertos 5672, 15672)
+- PostgreSQL (puerto 5432)
+- Prometheus (puerto 9090)
+- Grafana (puerto 3000)
 
-**Verificar que está corriendo**:
-```bash
-docker ps
-```
-
-Deberías ver:
-```
-CONTAINER ID   IMAGE                      STATUS         PORTS
-abc123...      rabbitmq:3.13-management   Up 10 seconds  0.0.0.0:5672->5672/tcp, 0.0.0.0:15672->15672/tcp
-```
-
-**Acceder al Management UI**:
-- URL: http://localhost:15672
-- Usuario: `guest`
-- Password: `guest`
-
----
-
-## Paso 2: Ejecutar LabBridge Service
-
-Abre una **nueva terminal** y ejecuta:
-
-```bash
-cd src/LabBridge.Service
-dotnet run
-```
-
-**Logs esperados**:
-```
-info: LabBridge.Infrastructure.HL7.MllpServer[0]
-      MLLP Server started on port 2575
-
-info: LabBridge.Infrastructure.Messaging.RabbitMqQueue[0]
-      RabbitMQ connection established: localhost:5672
-
-info: LabBridge.Service.MessageProcessorWorker[0]
-      MessageProcessorWorker starting...
-
-info: LabBridge.Service.MessageProcessorWorker[0]
-      Started consuming messages from RabbitMQ queue: labbridge.hl7.queue
-```
-
-Si ves estos logs, ¡todo está funcionando! 🎉
-
-**Dejar esta terminal abierta** (está escuchando mensajes).
-
----
-
-## Paso 3: Enviar Mensaje HL7v2
-
-Abre **otra terminal** y ejecuta el script PowerShell:
+### Paso 2: Generar Tráfico Continuo
 
 ```powershell
-.\send_test_message.ps1
+.\send_continuous_traffic.ps1
 ```
 
-**¿Qué hace el script?**
-1. Lee el mensaje HL7v2 de `test_oru_r01.hl7`
-2. Conecta al puerto 2575 (MLLP server)
-3. Envía el mensaje con MLLP framing (0x0B + mensaje + 0x1C + 0x0D)
-4. Espera el ACK del servidor
-5. Muestra el resultado
-
-**Output esperado**:
-```
-==========================================
-  HL7v2 MLLP Test Client
-==========================================
-
-Message file: test_oru_r01.hl7
-HL7 Content (305 chars):
-MSH|^~\&|PANTHER|LAB|LABFLOW|HOSPITAL|20251020120000||ORU^R01|MSG12345|P|2.5
-PID|1||12345678^^^MRN||García^Juan^Carlos||19850315|M
-OBR|1|ORD123|LAB456|58410-2^CBC panel^LN|||20251020115500||||||||||||||||F
-OBX|1|NM|718-7^Hemoglobin^LN||14.5|g/dL|13.5-17.5|N|||F|||20251020120000
-OBX|2|NM|6690-2^WBC^LN||7500|cells/uL|4500-11000|N|||F|||20251020120000
-OBX|3|NM|777-3^Platelets^LN||250000|cells/uL|150000-400000|N|||F|||20251020120000
-
-Connecting to localhost:2575...
-Connected successfully!
-
-Sending MLLP-framed message (308 bytes)...
-Message sent!
-
-Waiting for ACK response...
-ACK received (123 bytes):
-MSH|^~\&|LABBRIDGE|HOSPITAL|PANTHER|LAB|20251020120000||ACK|MSG12345|P|2.5
-MSA|AA|MSG12345
-
-SUCCESS: Message accepted (AA)
-
-Connection closed
-```
-
----
-
-## Paso 4: Verificar el Flujo Completo
-
-### A. En la terminal de LabBridge Service
-
-Deberías ver logs como estos (en orden):
-
-```
-[10:30:00 INF] Client connected: 127.0.0.1:xxxxx
-[10:30:00 INF] Received HL7 message from 127.0.0.1:xxxxx (305 bytes)
-[10:30:00 INF] Parsed HL7 message: Type=ORU^R01, ControlId=MSG12345
-[10:30:00 INF] Published HL7 message to RabbitMQ: MessageControlId=MSG12345, Size=305 bytes
-[10:30:00 INF] Sent ACK to 127.0.0.1:xxxxx
-[10:30:00 INF] Client disconnected: 127.0.0.1:xxxxx
-[10:30:01 INF] Processing message from queue: MessageId=MSG12345
-[10:30:01 INF] Processing HL7 message from queue (305 bytes)
-[10:30:01 INF] Transformed HL7 to FHIR: Patient exists=True, Observations=3, Report exists=True
-[10:30:01 INF] Message processed successfully: MessageId=MSG12345
-```
-
-**Esto confirma**:
-1. ✅ MLLP server recibió el mensaje
-2. ✅ Mensaje validado y parseado
-3. ✅ Mensaje publicado a RabbitMQ
-4. ✅ ACK enviado al cliente (< 1 segundo)
-5. ✅ Mensaje consumido de la cola
-6. ✅ Transformado a FHIR correctamente
-
----
-
-### B. En RabbitMQ Management UI
-
-1. Abre http://localhost:15672
-2. Login: `guest` / `guest`
-3. Click en **"Queues"** en el menú superior
-4. Deberías ver:
-   - `labbridge.hl7.queue` (main queue)
-   - `labbridge.hl7.dlq` (dead letter queue)
-
-**Observa**:
-- **Total messages**: Contador sube y baja (mensaje entra y sale rápido)
-- **Message rate**: Velocidad de procesamiento
-- Click en la cola → "Get messages" para ver mensajes en la cola
-
----
-
-## Paso 5: Load Testing - Enviar Múltiples Mensajes
-
-### Opción A: Mensajes secuenciales (uno tras otro)
-
+**Parámetros opcionales:**
 ```powershell
-.\send_multiple_messages.ps1 -Count 10
+.\send_continuous_traffic.ps1 `
+    -Server "localhost" `
+    -Port 2575 `
+    -MinMessages 1 `
+    -MaxMessages 5 `
+    -IntervalSeconds 10
 ```
 
-**Parámetros**:
-- `-Count <número>`: Cuántos mensajes enviar (default: 5)
-- `-Server <host>`: Servidor MLLP (default: localhost)
-- `-Port <puerto>`: Puerto MLLP (default: 2575)
-- `-Concurrent`: Enviar todos los mensajes en paralelo
+**¿Qué hace?**
+- Genera mensajes HL7v2 ORU^R01 realistas
+- Datos aleatorios (nombres, fechas de nacimiento, MRN, resultados)
+- Alterna entre 3 paneles de laboratorio: CBC, Lipid, Metabolic
+- LOINC codes correctos
+- Valores dentro de rangos normales
+- Statistics tracking
 
-**Output ejemplo**:
+**Output ejemplo:**
 ```
-===========================================
-  HL7v2 MLLP Load Test Client
-===========================================
+==========================================
+  HL7v2 Continuous Traffic Generator
+==========================================
 
 Configuration:
   Server: localhost:2575
-  Messages: 10
-  Mode: Sequential
+  Messages per batch: 1-5 (random)
+  Interval: 10 seconds
+  Press Ctrl+C to stop
 
-Generating 10 random HL7v2 messages...
-  [1] García, Juan Carlos - CBC panel (3 tests)
-  [2] Martínez, Ana Lucía - Lipid panel (3 tests)
-  [3] López, Pedro Miguel - Metabolic panel (3 tests)
-  ...
+Starting continuous traffic...
+Watch the dashboard at: http://localhost:3000/d/labbridge-main
 
-Sending messages to localhost:2575...
+[14:30:45] Batch #1 - Sending 3 message(s)...
+  ✓ [1/3] García, Juan - CBC panel - OK
+  ✓ [2/3] Martínez, Ana - Lipid panel - OK
+  ✓ [3/3] López, Pedro - Metabolic panel - OK
+  Batch completed: 3 OK, 0 failed (1.23s)
 
-[1/10] ✓ ACCEPTED - MessageId=MSG456789
-[2/10] ✓ ACCEPTED - MessageId=MSG123456
-[3/10] ✓ ACCEPTED - MessageId=MSG789123
-...
-
-===========================================
-  Summary
-===========================================
-Total messages:   10
-Successful:       10
-Failed:           0
-Duration:         2.34 seconds
-Throughput:       4.27 msg/sec
+  Waiting 10 seconds until next batch...
 ```
 
-### Opción B: Mensajes concurrentes (todos a la vez)
+### Paso 3: Monitorear en Grafana
 
-```powershell
-.\send_multiple_messages.ps1 -Count 50 -Concurrent
-```
+1. Abrir: http://localhost:3000
+2. Usuario: `admin` / Password: `admin`
+3. Dashboard: "LabBridge - HL7 to FHIR Integration"
 
-**Esto envía 50 mensajes simultáneamente** para testear cómo maneja el servidor alta carga.
+**Métricas en tiempo real:**
+- Messages received rate (mensajes/segundo)
+- Success vs Failure rate
+- Processing latency (p50, p90, p99)
+- Active MLLP connections
+- RabbitMQ queue depth
+- FHIR API call duration
 
-**¿Qué hace diferente el script?**
-- ✅ Genera **datos aleatorios** (nombres, fechas de nacimiento, MRN, resultados)
-- ✅ Alterna entre **3 tipos de paneles**: CBC, Lipid, Metabolic
-- ✅ Valores de tests **dentro de rangos realistas**
-- ✅ Message Control IDs **únicos** (no duplicados)
-- ✅ Muestra **throughput** (mensajes/segundo)
+### Paso 4: Verificar Audit Logs en PostgreSQL
 
-**En RabbitMQ UI** verás:
-- El gráfico de "Message rates" mostrando actividad intensa
-- Mensajes procesándose en tiempo real
-- Picos de throughput en modo concurrent
-
----
-
-## Troubleshooting
-
-### ❌ Error: "Connection refused" al enviar mensaje
-
-**Problema**: LabBridge Service no está corriendo
-**Solución**: Ejecuta `dotnet run` en `src/LabBridge.Service`
-
----
-
-### ❌ Error: "RabbitMQ connection failed"
-
-**Problema**: RabbitMQ no está corriendo
-**Solución**:
 ```bash
-docker-compose up -d
-docker ps  # verificar que está corriendo
+docker exec -it labbridge-postgres psql -U labbridge -d labbridge_audit
 ```
 
----
+```sql
+-- Ver últimos 10 mensajes procesados
+SELECT
+    message_control_id,
+    patient_id,
+    message_type,
+    status,
+    processing_duration_ms,
+    received_at
+FROM "AuditLogs"
+ORDER BY received_at DESC
+LIMIT 10;
 
-### ❌ Error: "Port 2575 already in use"
+-- Contar mensajes por status
+SELECT status, COUNT(*)
+FROM "AuditLogs"
+GROUP BY status;
 
-**Problema**: Ya hay un proceso usando el puerto
-**Solución**:
-```bash
-# Windows
-netstat -ano | findstr :2575
-taskkill /PID <PID> /F
-
-# Luego reinicia LabBridge Service
+-- Ver mensaje completo
+SELECT
+    raw_hl7_message,
+    fhir_patient_json,
+    fhir_observations_json
+FROM "AuditLogs"
+WHERE message_control_id = 'MSG123456';
 ```
 
----
+### Paso 5: Detener Todo
 
-## Limpiar Todo
-
-Cuando termines de testear:
-
-### Detener LabBridge Service
-- `Ctrl + C` en la terminal donde corre `dotnet run`
-
-### Detener RabbitMQ
 ```bash
+# Detener generador de tráfico
+Ctrl + C
+
+# Detener stack completo
+cd docker
 docker-compose down
+
+# Eliminar datos persistentes (opcional)
+docker-compose down -v
 ```
 
-### Eliminar datos de RabbitMQ (opcional)
+---
+
+## 🐛 Troubleshooting
+
+### ❌ Error: "Docker daemon not running"
+
+**Solución:**
+1. Iniciar Docker Desktop
+2. Esperar a que muestre "Docker Desktop is running"
+3. Reintentar el script
+
+---
+
+### ❌ Error: "labflow-api:latest not found"
+
+**Problema**: Falta construir la imagen de LabFlow API
+
+**Solución:**
 ```bash
-docker-compose down -v  # -v elimina los volumes
+cd ../LabFlow
+docker build -t labflow-api:latest .
 ```
 
 ---
 
-## Siguiente Paso
+### ❌ Error: "Port 5672/8080 already in use"
 
-Una vez que veas que todo funciona, el siguiente paso es implementar el **FHIR API Client (Refit)** para enviar los recursos FHIR transformados a LabFlow API.
+**Problema**: Servicios de tests anteriores no se limpiaron
 
-Por ahora, el MessageProcessor solo transforma a FHIR y loguea, pero NO envía a ninguna API (eso es Phase 1B.3).
+**Solución:**
+```bash
+cd tests/LabBridge.IntegrationTests
+docker-compose -f docker-compose.test.yml down
+```
 
 ---
 
-## Diagrama del Flujo
+### ❌ Unit tests fallan con "Missing file"
+
+**Problema**: Ejecutando desde directorio incorrecto
+
+**Solución:**
+```powershell
+# Siempre ejecutar desde la raíz del proyecto
+cd D:\Personal\FHIR\LabBridge
+.\scripts\run-unit-tests.ps1
+```
+
+---
+
+## 📊 Estructura de Tests
 
 ```
-┌─────────────┐  HL7v2 MLLP   ┌──────────────┐  Publish   ┌──────────────┐
-│  Analyzer   │ ────────────> │ MllpServer   │ ─────────> │  RabbitMQ    │
-│ (PowerShell)│               │ (port 2575)  │            │   Queue      │
-└─────────────┘               └──────────────┘            └──────────────┘
-                                     │                            │
-                                     │ ACK (< 1 sec)              │
-                                     ↓                            │ Consume
-                              ┌──────────────┐                    │
-                              │   Client     │                    ↓
-                              │ (PowerShell) │          ┌──────────────────┐
-                              └──────────────┘          │ MessageProcessor │
-                                                        │ Worker           │
-                                                        └──────────────────┘
-                                                               │
-                                                               ↓
-                                                        ┌──────────────────┐
-                                                        │ FHIR Transform   │
-                                                        │ (Patient, Obs,   │
-                                                        │  DiagnosticRpt)  │
-                                                        └──────────────────┘
+tests/
+├── LabBridge.UnitTests/              # 64 tests (sin Docker)
+│   ├── HL7/
+│   │   ├── HL7ParsingTests.cs        # 15 tests
+│   │   ├── AckGenerationTests.cs     # 8 tests
+│   │   └── MllpServerTests.cs        # 6 tests
+│   └── FHIR/
+│       ├── FhirTransformationTests.cs # 24 tests
+│       └── LabFlowClientTests.cs     # 10 tests
+│
+└── LabBridge.IntegrationTests/       # 1 E2E test (con Docker)
+    ├── EndToEndTests.cs              # Flujo completo
+    └── docker-compose.test.yml       # RabbitMQ, PostgreSQL, LabFlow
 ```
+
+---
+
+## 🔄 Workflow Recomendado
+
+### Durante Desarrollo (TDD)
+```powershell
+# Loop rápido: solo unit tests
+.\scripts\run-unit-tests.ps1
+```
+
+### Antes de Commit
+```powershell
+# Validación completa E2E
+.\scripts\run-e2e-tests.ps1
+```
+
+### Para Demos / Testing Manual
+```powershell
+# Levantar stack + generar tráfico + ver Grafana
+cd docker && docker-compose up -d
+cd ..
+.\send_continuous_traffic.ps1
+# Abrir http://localhost:3000 en browser
+```
+
+---
+
+## 📚 Más Información
+
+- **scripts/README.md** - Documentación detallada de scripts
+- **INFRASTRUCTURE_GUIDE.md** - Arquitectura completa del sistema
+- **README.md** - Overview general del proyecto
