@@ -13,10 +13,7 @@ public class FhirTransformer : IHL7ToFhirTransformer
 {
     public TransformationResult Transform(object hl7Message)
     {
-        if (hl7Message == null)
-        {
-            throw new ArgumentNullException(nameof(hl7Message));
-        }
+        ArgumentNullException.ThrowIfNull(hl7Message);
 
         try
         {

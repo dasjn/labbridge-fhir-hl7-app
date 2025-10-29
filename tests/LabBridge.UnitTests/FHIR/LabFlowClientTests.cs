@@ -3,6 +3,8 @@ using Hl7.Fhir.Model;
 using LabBridge.Infrastructure.FHIR;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Refit;
+using System.Net;
 using Xunit;
 
 namespace LabBridge.UnitTests.FHIR;
@@ -30,8 +32,13 @@ public class LabFlowClientTests
         var expectedPatient = CreateTestPatient();
         expectedPatient.Id = "patient-123";
 
+        var mockResponse = new Mock<IApiResponse<Patient>>();
+        mockResponse.Setup(x => x.StatusCode).Returns(HttpStatusCode.Created);
+        mockResponse.Setup(x => x.IsSuccessStatusCode).Returns(true);
+        mockResponse.Setup(x => x.Content).Returns(expectedPatient);
+
         _mockApi.Setup(x => x.CreatePatientAsync(patient, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedPatient);
+            .ReturnsAsync(mockResponse.Object);
 
         // Act
         var result = await _client.CreateOrUpdatePatientAsync(patient);
@@ -50,8 +57,13 @@ public class LabFlowClientTests
         var expectedPatient = CreateTestPatient();
         expectedPatient.Id = "patient-123";
 
+        var mockResponse = new Mock<IApiResponse<Patient>>();
+        mockResponse.Setup(x => x.StatusCode).Returns(HttpStatusCode.Created);
+        mockResponse.Setup(x => x.IsSuccessStatusCode).Returns(true);
+        mockResponse.Setup(x => x.Content).Returns(expectedPatient);
+
         _mockApi.Setup(x => x.CreatePatientAsync(patient, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedPatient);
+            .ReturnsAsync(mockResponse.Object);
 
         // Act
         await _client.CreateOrUpdatePatientAsync(patient);
@@ -112,8 +124,13 @@ public class LabFlowClientTests
         };
         var expectedPatient = new Patient { Id = "patient-456" };
 
+        var mockResponse = new Mock<IApiResponse<Patient>>();
+        mockResponse.Setup(x => x.StatusCode).Returns(HttpStatusCode.Created);
+        mockResponse.Setup(x => x.IsSuccessStatusCode).Returns(true);
+        mockResponse.Setup(x => x.Content).Returns(expectedPatient);
+
         _mockApi.Setup(x => x.CreatePatientAsync(patient, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedPatient);
+            .ReturnsAsync(mockResponse.Object);
 
         // Act
         var result = await _client.CreateOrUpdatePatientAsync(patient);
@@ -135,8 +152,13 @@ public class LabFlowClientTests
         var expectedObservation = CreateTestObservation();
         expectedObservation.Id = "observation-123";
 
+        var mockResponse = new Mock<IApiResponse<Observation>>();
+        mockResponse.Setup(x => x.StatusCode).Returns(HttpStatusCode.Created);
+        mockResponse.Setup(x => x.IsSuccessStatusCode).Returns(true);
+        mockResponse.Setup(x => x.Content).Returns(expectedObservation);
+
         _mockApi.Setup(x => x.CreateObservationAsync(observation, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedObservation);
+            .ReturnsAsync(mockResponse.Object);
 
         // Act
         var result = await _client.CreateObservationAsync(observation);
@@ -155,8 +177,13 @@ public class LabFlowClientTests
         var expectedObservation = CreateTestObservation();
         expectedObservation.Id = "observation-123";
 
+        var mockResponse = new Mock<IApiResponse<Observation>>();
+        mockResponse.Setup(x => x.StatusCode).Returns(HttpStatusCode.Created);
+        mockResponse.Setup(x => x.IsSuccessStatusCode).Returns(true);
+        mockResponse.Setup(x => x.Content).Returns(expectedObservation);
+
         _mockApi.Setup(x => x.CreateObservationAsync(observation, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedObservation);
+            .ReturnsAsync(mockResponse.Object);
 
         // Act
         await _client.CreateObservationAsync(observation);
@@ -219,8 +246,13 @@ public class LabFlowClientTests
         var expectedReport = CreateTestDiagnosticReport();
         expectedReport.Id = "report-123";
 
+        var mockResponse = new Mock<IApiResponse<DiagnosticReport>>();
+        mockResponse.Setup(x => x.StatusCode).Returns(HttpStatusCode.Created);
+        mockResponse.Setup(x => x.IsSuccessStatusCode).Returns(true);
+        mockResponse.Setup(x => x.Content).Returns(expectedReport);
+
         _mockApi.Setup(x => x.CreateDiagnosticReportAsync(report, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedReport);
+            .ReturnsAsync(mockResponse.Object);
 
         // Act
         var result = await _client.CreateDiagnosticReportAsync(report);
@@ -239,8 +271,13 @@ public class LabFlowClientTests
         var expectedReport = CreateTestDiagnosticReport();
         expectedReport.Id = "report-123";
 
+        var mockResponse = new Mock<IApiResponse<DiagnosticReport>>();
+        mockResponse.Setup(x => x.StatusCode).Returns(HttpStatusCode.Created);
+        mockResponse.Setup(x => x.IsSuccessStatusCode).Returns(true);
+        mockResponse.Setup(x => x.Content).Returns(expectedReport);
+
         _mockApi.Setup(x => x.CreateDiagnosticReportAsync(report, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedReport);
+            .ReturnsAsync(mockResponse.Object);
 
         // Act
         await _client.CreateDiagnosticReportAsync(report);

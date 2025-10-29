@@ -7,6 +7,7 @@ namespace LabBridge.Infrastructure.FHIR;
 /// Refit interface for LabFlow FHIR API
 /// Defines HTTP endpoints for FHIR resource operations
 /// Uses FhirHttpContentSerializer for proper FHIR serialization/deserialization
+/// Returns IApiResponse to access HTTP status codes and headers
 /// </summary>
 public interface ILabFlowApi
 {
@@ -15,17 +16,17 @@ public interface ILabFlowApi
     /// Uses conditional create with identifier (MRN) for idempotency
     /// </summary>
     [Post("/Patient")]
-    Task<Patient> CreatePatientAsync([Body] Patient patient, CancellationToken cancellationToken = default);
+    Task<IApiResponse<Patient>> CreatePatientAsync([Body] Patient patient, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// POST /Observation - Create an Observation resource
     /// </summary>
     [Post("/Observation")]
-    Task<Observation> CreateObservationAsync([Body] Observation observation, CancellationToken cancellationToken = default);
+    Task<IApiResponse<Observation>> CreateObservationAsync([Body] Observation observation, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// POST /DiagnosticReport - Create a DiagnosticReport resource
     /// </summary>
     [Post("/DiagnosticReport")]
-    Task<DiagnosticReport> CreateDiagnosticReportAsync([Body] DiagnosticReport report, CancellationToken cancellationToken = default);
+    Task<IApiResponse<DiagnosticReport>> CreateDiagnosticReportAsync([Body] DiagnosticReport report, CancellationToken cancellationToken = default);
 }
